@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
@@ -49,7 +52,7 @@ func main() {
 	// db connection string
 	dbUrl := fmt.Sprintf("host=%s user=%s dbname=%s sslmode=disable password=%s port=%s", host, user, dbName, password, port)
 	//open connection to db
-	db, err := gorm.Open(dialect, dbUrl)
+	db, err = gorm.Open(dialect, dbUrl)
 	if err != nil {
 		log.Fatal(err)
 	} else {
@@ -63,9 +66,49 @@ func main() {
 
 	db.AutoMigrate(&Person{})
 	db.AutoMigrate(&Book{})
-	db.Create(&person)
 
-	for idx := range books {
-		db.Create(&books[idx])
+	// db.Create(&person)
+
+	// for idx := range books {
+	// 	db.Create(&books[idx])
+	// }
+
+	router := mux.NewRouter()
+
+	router.HandleFunc("/people", getPeople).Methods("GET")
+	router.HandleFunc("/people/{id}", getPersonById).Methods("GET")
+	router.HandleFunc("/create/person", createPerson).Methods("POST")
+	http.ListenAndServe(":8080", router)
+}
+
+func getPeople(w http.ResponseWriter, r *http.Request) {
+	var person []Person
+	db.Find(&person)
+	json.NewEncoder(w).Encode(&person)
+
+}
+func getPersonById(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	var person Person
+	var books []Book
+	db.First(&person, params["id"])
+	db.Model(&person).Related(&books)
+
+	person.Books = books
+	json.NewEncoder(w).Encode(person)
+}
+
+func createPerson(w http.ResponseWriter, r *http.Request) {
+	var person Person
+	json.NewDecoder(r.Body).Decode(&person)
+
+	createdPerson := db.Create(&person)
+	err = createdPerson.Error
+	if err != nil {
+		json.NewEncoder(w).Encode(err)
+	} else {
+		json.NewEncoder(w).Encode(&person)
 	}
+
 }
