@@ -78,6 +78,7 @@ func main() {
 	router.HandleFunc("/people", getPeople).Methods("GET")
 	router.HandleFunc("/people/{id}", getPersonById).Methods("GET")
 	router.HandleFunc("/create/person", createPerson).Methods("POST")
+	router.HandleFunc("/delete/person/{id}", DeletePerson).Methods("DELETE")
 	http.ListenAndServe(":8080", router)
 }
 
@@ -111,4 +112,15 @@ func createPerson(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&person)
 	}
 
+}
+
+func DeletePerson(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	var person Person
+
+	db.First(&person, params["id"])
+	db.Delete(&person)
+
+	json.NewEncoder(w).Encode(&person)
 }
